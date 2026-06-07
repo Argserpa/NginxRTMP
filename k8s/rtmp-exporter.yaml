@@ -18,9 +18,9 @@ spec:
       containers:
         - name: rtmp-exporter
           image: rtmp-exporter:latest
-          imagePullPolicy: Never  # imagen local de minikube
+          imagePullPolicy: Never  # Imagen local construida en minikube
           env:
-            # El exporter llama a /stat de nginx. 'nginx-stream' es el Service K8s.
+            # El exportador consulta /stat de Nginx; 'nginx-stream' es el Service de Kubernetes
             - name: NGINX_STAT_URL
               value: "http://nginx-stream:80/stat"
           ports:
