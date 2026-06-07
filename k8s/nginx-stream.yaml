@@ -1,3 +1,18 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nginx-recordings
+  namespace: streaming
+  labels:
+    app: nginx-stream
+spec:
+  accessModes:
+    - ReadWriteOnce  # Una sola réplica de nginx-stream escribe las grabaciones
+  resources:
+    requests:
+      storage: 5Gi
+  # storageClassName: standard  # Por defecto en minikube; descomentar si se usa otro
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,7 +21,7 @@ metadata:
   labels:
     app: nginx-stream
 spec:
-  replicas: 1  # RTMP no escala horizontalmente sin shared storage — mantener 1
+  replicas: 1  # RTMP no escala horizontalmente sin almacenamiento compartido; se mantiene una réplica
   selector:
     matchLabels:
       app: nginx-stream
@@ -18,7 +33,7 @@ spec:
       containers:
         - name: nginx-stream
           image: nginx-rtmp-server:latest
-          imagePullPolicy: Never  # imagen local de minikube
+          imagePullPolicy: Never  # Imagen local construida en minikube
           ports:
             - name: rtmp
               containerPort: 1935
@@ -29,17 +44,20 @@ spec:
             - name: https
               containerPort: 443
               protocol: TCP
-          # ----- Opcional: montar nginx.conf desde ConfigMap -----
-          # pruebas:
-          #  no recompilar la imagen al cambiar la config,
-          # descomentar esto y crear un ConfigMap con el contenido de nginx.conf
-          # volumeMounts:
-          #   - name: nginx-config
-          #     mountPath: /usr/local/nginx/conf/nginx.conf
-          #     subPath: nginx.conf
-          #   - name: tls-certs
-          #     mountPath: /usr/local/nginx/certs
-          #     readOnly: true
+          volumeMounts:
+            # Volumen persistente para las grabaciones (record_path /recordings)
+            - name: recordings
+              mountPath: /recordings
+            # ----- Opcional: montaje de nginx.conf desde un ConfigMap -----
+            # Permite modificar la configuración sin recompilar la imagen.
+            # Para activarlo, descomentar el siguiente bloque y crear un ConfigMap
+            # con el contenido de nginx.conf.
+            # - name: nginx-config
+            #   mountPath: /usr/local/nginx/conf/nginx.conf
+            #   subPath: nginx.conf
+            # - name: tls-certs
+            #   mountPath: /usr/local/nginx/certs
+            #   readOnly: true
           resources:
             requests:
               cpu: "200m"
@@ -47,13 +65,16 @@ spec:
             limits:
               cpu: "500m"
               memory: "256Mi"
-      # volumes:
-      #   - name: nginx-config
-      #     configMap:
-      #       name: nginx-config
-      #   - name: tls-certs
-      #     secret:
-      #       secretName: nginx-tls  # kubectl create secret tls nginx-tls --cert=... --key=...
+      volumes:
+        - name: recordings
+          persistentVolumeClaim:
+            claimName: nginx-recordings
+        # - name: nginx-config
+        #   configMap:
+        #     name: nginx-config
+        # - name: tls-certs
+        #   secret:
+        #     secretName: nginx-tls  # kubectl create secret tls nginx-tls --cert=... --key=...
 ---
 apiVersion: v1
 kind: Service
@@ -63,7 +84,7 @@ metadata:
   labels:
     app: nginx-stream
 spec:
-  type: LoadBalancer  # requiere: minikube tunnel (en otra terminal)
+  type: LoadBalancer  # Requiere ejecutar `minikube tunnel` en una terminal aparte
   selector:
     app: nginx-stream
   ports:

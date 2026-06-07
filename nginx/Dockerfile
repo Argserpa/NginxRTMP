@@ -1,7 +1,7 @@
-# Usa una imagen base de Ubuntu
+# Imagen base Ubuntu
 FROM ubuntu:22.04
 
-# Instala las dependencias necesarias para compilar Nginx y el módulo RTMP
+# Dependencias necesarias para compilar Nginx y el módulo RTMP
 RUN apt-get update && \
     apt-get install -y \
     build-essential \
@@ -13,6 +13,7 @@ RUN apt-get update && \
     net-tools \
     procps \
     curl \
+    ffmpeg \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
@@ -20,20 +21,20 @@ RUN apt-get update && \
     apt-get install -y ca-certificates && \
     update-ca-certificates
 
-# Descarga el código fuente de Nginx (usa una versión estable)
+# Descarga del código fuente de Nginx en una versión estable
 ENV NGINX_VERSION=1.28.0
 RUN wget http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz -O /tmp/nginx-${NGINX_VERSION}.tar.gz && \
     tar -zxvf /tmp/nginx-${NGINX_VERSION}.tar.gz -C /tmp
 
-# Descarga el módulo RTMP (usa una versión estable)
+# Descarga del módulo RTMP en una versión estable
 ENV NGINX_RTMP_MODULE_VERSION=1.2.2
 RUN git clone https://github.com/arut/nginx-rtmp-module.git /tmp/nginx-rtmp-module
 
-# Copia los certificados SSL (Asegúrate de que existan en tu directorio local './certs')
+# Copia de los certificados SSL desde el directorio local './certs'
 COPY ../certs/nginx.crt /etc/nginx/certs/nginx.crt
 COPY ../certs/nginx.key /etc/nginx/certs/nginx.key
 
-# Compila Nginx con el módulo RTMP
+# Compilación de Nginx con el módulo RTMP
 WORKDIR /tmp/nginx-${NGINX_VERSION}
 
 RUN ./configure \
@@ -44,25 +45,34 @@ RUN ./configure \
     make install
 
 
-# Crea los directorios para los logs de Nginx y para HLS/DASH
+# Directorios para los logs de Nginx, HLS/DASH, el FLV temporal y las grabaciones.
+# /tmp/rec y /recordings deben ser escribibles por el usuario 'nginx' (los workers
+# que graban corren como ese usuario, no como root), de ahí el chmod 0777.
 RUN mkdir -p /usr/local/nginx/logs && \
     mkdir -p /tmp/hls && \
     mkdir -p /tmp/vod/files && \
-    mkdir -p /tmp/dash
+    mkdir -p /tmp/dash && \
+    mkdir -p /tmp/rec && \
+    mkdir -p /recordings && \
+    chmod 0777 /tmp/rec /recordings
 
-# Crea el fichero para la página web y la copia en el contenedor
+# Script que convierte el FLV grabado a MPEG-TS por fecha (exec_record_done)
+COPY ./nginx/record-done.sh /usr/local/bin/record-done.sh
+RUN chmod +x /usr/local/bin/record-done.sh
+
+# Directorio y contenido de la página web servida por el contenedor
 RUN mkdir -p /usr/share/nginx/html
 COPY ./nginx/html /usr/share/nginx/html
-# Copia el archivo de configuración de Nginx
+# Archivo de configuración de Nginx
 COPY ./nginx/nginx.conf /usr/local/nginx/conf/nginx.conf
 
-# Expone los puertos necesarios: 1935 para RTMP y 80 para HTTP (HLS/DASH) y 443 SSL
+# Puertos expuestos: 1935 (RTMP), 80 (HTTP/HLS/DASH) y 443 (HTTPS)
 EXPOSE 1935
 EXPOSE 80
 EXPOSE 443
 
-# Comando para iniciar Nginx cuando el contenedor se ejecute
+# Arranque de Nginx al iniciar el contenedor
 CMD ["/usr/local/nginx/sbin/nginx", "-g", "daemon off;", "-c", "/usr/local/nginx/conf/nginx.conf"]
-# Crear usuario y grupo nginx
+# Creación del usuario y grupo nginx
 RUN groupadd -r nginx && useradd -r -g nginx nginx
 

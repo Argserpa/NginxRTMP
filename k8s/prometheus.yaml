@@ -60,9 +60,9 @@ spec:
       labels:
         app: prometheus
     spec:
-      # Prometheus necesita escribir en /prometheus — ajustar fsGroup si el PV lo requiere
+      # Prometheus necesita permisos de escritura en /prometheus; el fsGroup se ajusta si el PV lo requiere
       securityContext:
-        fsGroup: 65534  # grupo 'nobody' del contenedor de Prometheus
+        fsGroup: 65534  # Grupo 'nobody' del contenedor de Prometheus
       containers:
         - name: prometheus
           image: prom/prometheus:latest

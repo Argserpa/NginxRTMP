@@ -28,7 +28,7 @@ spec:
         app: grafana
     spec:
       securityContext:
-        fsGroup: 472   # GID requerido por el contenedor de Grafana
+        fsGroup: 472   # GID exigido por el contenedor oficial de Grafana
         runAsUser: 472
       containers:
         - name: grafana
@@ -71,7 +71,7 @@ metadata:
   labels:
     app: grafana
 spec:
-  type: NodePort  # accesible sin minikube tunnel: minikube service grafana -n streaming
+  type: NodePort  # Accesible sin minikube tunnel mediante: minikube service grafana -n streaming
   selector:
     app: grafana
   ports:

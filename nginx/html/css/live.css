@@ -101,7 +101,7 @@
     border-radius: 0 0 12px 12px;
 }
 
-/* Info strip debajo del player */
+/* Banda de información bajo el reproductor */
 .stream-info {
     display: flex;
     align-items: center;
@@ -160,7 +160,7 @@
     margin: 32px 0 12px;
 }
 
-/* Links de protocolo */
+/* Enlaces de protocolo */
 .proto-list {
     display: flex;
     flex-wrap: wrap;

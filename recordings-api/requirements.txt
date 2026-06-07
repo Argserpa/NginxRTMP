@@ -1,0 +1,2 @@
+# Dependencias del servicio recordings-api
+aiohttp==3.9.5   # servidor HTTP asíncrono que sirve la API /api/recordings

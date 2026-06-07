@@ -1,25 +1,42 @@
 services:
 
-  # ── Nginx Streaming Server ─────────────────────────────────────────────────
+  #  Servidor Nginx de streaming 
   nginx-stream-rtpm:
     build:
-     # context: monitoring                      # contexto = raíz del repo
-      dockerfile: ./nginx/Dockerfile  # Dockerfile dentro de nginx/
+      dockerfile: ./nginx/Dockerfile  # Dockerfile ubicado en nginx/
     image: nginx-rtmp-server
     container_name: nginx_streaming_server
     ports:
-      - "1935:1935"   # RTMP  → OBS Studio
-      - "80:80"       # HTTP  → player web
+      - "1935:1935"   # RTMP, ingesta desde el codificador
+      - "80:80"       # HTTP, reproductor web
       - "443:443"     # HTTPS
     volumes:
-      - ./nginx/nginx.conf:/usr/local/nginx/conf/nginx.conf  # config en caliente
-      - ./certs:/usr/local/nginx/certs                       # certificados SSL
+      - ./nginx/nginx.conf:/usr/local/nginx/conf/nginx.conf  # Configuración recargable
+      - ./certs:/usr/local/nginx/certs                       # Certificados SSL
+      - recordings_data:/recordings                          # Grabaciones VOD (.ts por fecha)
+    depends_on:
+      - recordings-api   # nginx resuelve el upstream del proxy_pass al arrancar
     restart: unless-stopped
     networks:
       - streaming_network
-      - monitoring_network   # necesario para que nginx-exporter lo alcance
+      - monitoring_network   # Red necesaria para que nginx-exporter alcance al servidor
 
-  # ── Nginx Prometheus Exporter ──────────────────────────────────────────────
+  #  API de metadatos de grabaciones (sirve recordings.html) 
+  recordings-api:
+    build:
+      context: ./recordings-api
+      dockerfile: Dockerfile
+    image: recordings-api
+    container_name: recordings_api
+    environment:
+      RECORD_DIR: /recordings
+    volumes:
+      - recordings_data:/recordings:ro   # mismo volumen que nginx; aquí solo lectura
+    restart: unless-stopped
+    networks:
+      - streaming_network   # nginx-stream-rtpm hace proxy_pass a este servicio
+
+  #  Nginx Prometheus Exporter 
   nginx-exporter:
     image: nginx/nginx-prometheus-exporter:latest
     container_name: nginx_prometheus_exporter
@@ -34,7 +51,7 @@ services:
       - monitoring_network
       - streaming_network
 
-  # ── RTMP Exporter (usuarios, bitrate, uptime del stream) ───────────────────
+  #  Exportador RTMP (usuarios conectados, bitrate y uptime del stream) 
   rtmp-exporter:
     build:
       context: ./monitoring/rtmp-exporter
@@ -54,7 +71,7 @@ services:
       - monitoring_network
       - streaming_network
 
-  # ── Prometheus ─────────────────────────────────────────────────────────────
+  #  Prometheus 
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus_server
@@ -65,7 +82,7 @@ services:
       - prometheus_data:/prometheus
     command:
       - --config.file=/etc/prometheus/prometheus.yml
-      - --web.enable-lifecycle        # permite recargar config con POST /-/reload
+      - --web.enable-lifecycle        # Permite recargar la configuración mediante POST /-/reload
     depends_on:
       - nginx-exporter
       - node-exporter
@@ -73,7 +90,7 @@ services:
     networks:
       - monitoring_network
 
-  # ── Grafana ────────────────────────────────────────────────────────────────
+  #  Grafana 
   grafana:
     image: grafana/grafana:latest
     container_name: grafana_server
@@ -90,7 +107,7 @@ services:
     networks:
       - monitoring_network
 
-  # ── Node Exporter (métricas del host) ──────────────────────────────────────
+  #  Exportador Node Exporter (métricas del host) 
   node-exporter:
     image: prom/node-exporter:latest
     container_name: node_exporter_server
@@ -104,14 +121,15 @@ services:
     networks:
       - monitoring_network
 
-# ── Redes ──────────────────────────────────────────────────────────────────
+#  Redes 
 networks:
   streaming_network:
     driver: bridge
   monitoring_network:
     driver: bridge
 
-# ── Volúmenes persistentes ─────────────────────────────────────────────────
+#  Volúmenes persistentes 
 volumes:
   prometheus_data:
   grafana_data:
+  recordings_data:   # Grabaciones VOD compartidas entre nginx-stream-rtpm y recordings-api

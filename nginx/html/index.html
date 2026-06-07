@@ -21,6 +21,7 @@
     </h1>
     <nav class="header-nav">
         <a href="/" class="active">Live</a>
+        <a href="/recordings.html">Recordings</a>
     </nav>
 </header>
 
@@ -84,7 +85,7 @@
     var statusDot   = document.getElementById('status-dot');
     var latencyLabel = document.getElementById('latency-label');
 
-    // Detectar si el stream está vivo
+    // Detección del estado del stream
     player.on('playing', function () {
         statusDot.textContent = 'En directo';
         statusDot.classList.add('live');
@@ -102,14 +103,14 @@
         latencyLabel.textContent = 'HLS · sin señal';
     });
 
-    // Botón recargar
+    // Botón de recarga del stream
     document.getElementById('btn-reload').addEventListener('click', function () {
         var src = player.currentSrc();
         player.src({ src: src, type: 'application/x-mpegURL' });
         player.play();
     });
 
-    // Botón pantalla completa
+    // Botón de pantalla completa
     document.getElementById('btn-fullscreen').addEventListener('click', function () {
         player.requestFullscreen();
     });

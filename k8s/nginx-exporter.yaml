@@ -20,7 +20,7 @@ spec:
           image: nginx/nginx-prometheus-exporter:latest
           imagePullPolicy: IfNotPresent
           env:
-            # !!'nginx-stream' es el nombre del Service de K8s, no el contenedor Docker
+            # 'nginx-stream' corresponde al Service de Kubernetes, no al contenedor Docker
             - name: NGINX_STUB_STATUS_URL
               value: "http://nginx-stream:80/nginx_status"
           ports:

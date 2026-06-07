@@ -35,10 +35,10 @@
 <script>
     var player = videojs('my-video');
 
-    // Configuración adicional para baja latencia en el reproductor (opcional, Video.js lo hace bastante bien por defecto)
-    player.hls.liveSyncDuration = 1; // Intentar mantener el búfer de reproducción en 1 segundo
-    player.hls.liveSyncDurationCount = 1; // Mantener solo 1 segmento en el búfer
-    player.hls.enableLowLatency = true; // Habilitar funciones de baja latencia explícitamente
+    // Ajustes opcionales de baja latencia en el reproductor
+    player.hls.liveSyncDuration = 1; // Búfer de reproducción objetivo de 1 segundo
+    player.hls.liveSyncDurationCount = 1; // Tamaño del búfer limitado a un único segmento
+    player.hls.enableLowLatency = true; // Activación explícita del modo de baja latencia
 
     player.on('error', function() {
         console.error('Video.js error:', player.error());

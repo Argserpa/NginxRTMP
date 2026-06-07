@@ -14,11 +14,11 @@ spec:
       labels:
         app: node-exporter
     spec:
-      # Tolerations para que corra en todos los nodos, incluido el control-plane
+      # Tolerations para su ejecución en todos los nodos, incluido el control-plane
       tolerations:
         - effect: NoSchedule
           operator: Exists
-      hostPID: true    # necesario para métricas de procesos del host
+      hostPID: true    # Necesario para acceder a las métricas de procesos del host
       containers:
         - name: node-exporter
           image: prom/node-exporter:latest
@@ -28,7 +28,7 @@ spec:
           ports:
             - name: metrics
               containerPort: 9100
-              hostPort: 9100  # expuesto directamente en la IP del nodo
+              hostPort: 9100  # Expuesto directamente en la IP del nodo
           securityContext:
             readOnlyRootFilesystem: true
             runAsNonRoot: true
@@ -50,7 +50,7 @@ spec:
           hostPath:
             path: /
 ---
-# Service headless: Prometheus puede scrapear cada pod por su IP individual
+# Service headless: Prometheus accede a cada pod por su IP individual
 apiVersion: v1
 kind: Service
 metadata:
@@ -60,7 +60,7 @@ metadata:
     app: node-exporter
 spec:
   type: ClusterIP
-  clusterIP: None  # headless — resuelve a IPs de cada pod del DaemonSet
+  clusterIP: None  # Headless: resuelve a las IP de cada pod del DaemonSet
   selector:
     app: node-exporter
   ports:
