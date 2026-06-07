@@ -22,15 +22,14 @@ spec:
       containers:
         - name: rtmp-exporter
           image: rtmp-exporter:latest
-          imagePullPolicy: Never  # imagen local cargada en minikube con 'minikube image load'
+          imagePullPolicy: Never  # Imagen local construida en minikube
           env:
-            # El exporter llama a /stat de nginx para obtener el XML de estado RTMP.
-            # 'nginx-stream' es el nombre del Service K8s, resuelto por DNS interno.
+            # El exportador consulta /stat de Nginx; 'nginx-stream' es el Service de Kubernetes
             - name: NGINX_STAT_URL
               value: "http://nginx-stream:80/stat"
           ports:
             - name: metrics
-              containerPort: 9114  # Prometheus scrapea GET :9114/metrics
+              containerPort: 9114
           resources:
             requests:
               cpu: "50m"

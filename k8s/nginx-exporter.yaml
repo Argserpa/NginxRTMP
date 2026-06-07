@@ -1,8 +1,3 @@
-# Deployment: nginx-exporter
-# nginx-prometheus-exporter (oficial de nginx) lee el endpoint /nginx_status
-# (stub_status) y lo convierte al formato Prometheus exposition.
-# Métricas expuestas: conexiones activas, requests aceptados/manejados, estado
-# de los workers (waiting, reading, writing).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -25,13 +20,12 @@ spec:
           image: nginx/nginx-prometheus-exporter:latest
           imagePullPolicy: IfNotPresent
           env:
-            # 'nginx-stream' es el nombre del Service K8s del servidor principal,
-            # no el nombre del contenedor Docker. K8s resuelve este DNS internamente.
+            # 'nginx-stream' corresponde al Service de Kubernetes, no al contenedor Docker
             - name: NGINX_STUB_STATUS_URL
               value: "http://nginx-stream:80/nginx_status"
           ports:
             - name: metrics
-              containerPort: 9113  # Prometheus scrapea GET :9113/metrics
+              containerPort: 9113
           resources:
             requests:
               cpu: "50m"
@@ -40,9 +34,6 @@ spec:
               cpu: "100m"
               memory: "64Mi"
 ---
-# Service: nginx-exporter
-# ClusterIP (solo accesible dentro del clúster) es suficiente porque Prometheus
-# vive en el mismo namespace y se conecta por DNS interno: nginx-exporter:9113.
 apiVersion: v1
 kind: Service
 metadata:

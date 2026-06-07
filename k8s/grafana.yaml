@@ -1,6 +1,3 @@
-# PersistentVolumeClaim: grafana-pvc
-# Solicita 2 GiB para almacenar dashboards, datasources y configuración de
-# Grafana. Sin PVC, toda la configuración se pierde al reiniciar el pod.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -13,9 +10,6 @@ spec:
     requests:
       storage: 2Gi
 ---
-# Deployment: grafana
-# Dashboard de visualización. Se conecta a Prometheus como datasource y permite
-# crear paneles con métricas de streaming en tiempo real.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -33,18 +27,14 @@ spec:
       labels:
         app: grafana
     spec:
-      # Grafana requiere correr con el GID 472 y el UID 472 para poder
-      # escribir en /var/lib/grafana. Sin esto el PVC no es accesible.
       securityContext:
-        fsGroup: 472
+        fsGroup: 472   # GID exigido por el contenedor oficial de Grafana
         runAsUser: 472
       containers:
         - name: grafana
           image: grafana/grafana:latest
           imagePullPolicy: IfNotPresent
           env:
-            # Las credenciales se leen del Secret 'grafana-credentials' (01-secrets.yaml)
-            # en lugar de hardcodearlas aquí, siguiendo el principio de mínimo privilegio.
             - name: GF_SECURITY_ADMIN_USER
               valueFrom:
                 secretKeyRef:
@@ -60,7 +50,7 @@ spec:
               containerPort: 3000
           volumeMounts:
             - name: data
-              mountPath: /var/lib/grafana  # dashboards, plugins y base de datos SQLite
+              mountPath: /var/lib/grafana
           resources:
             requests:
               cpu: "100m"
@@ -73,10 +63,6 @@ spec:
           persistentVolumeClaim:
             claimName: grafana-pvc
 ---
-# Service: grafana
-# NodePort expone Grafana directamente en la IP del nodo sin necesitar minikube
-# tunnel. Acceso: minikube service grafana -n streaming
-# nodePort 30300: puerto fijo en el nodo para facilitar el acceso en desarrollo.
 apiVersion: v1
 kind: Service
 metadata:
@@ -85,11 +71,11 @@ metadata:
   labels:
     app: grafana
 spec:
-  type: NodePort
+  type: NodePort  # Accesible sin minikube tunnel mediante: minikube service grafana -n streaming
   selector:
     app: grafana
   ports:
     - name: web
       port: 3000
       targetPort: 3000
-      nodePort: 30300  # accesible en http://<node-ip>:30300
+      nodePort: 30300

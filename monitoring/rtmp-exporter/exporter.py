@@ -1,6 +1,6 @@
 """
-nginx-rtmp Prometheus Exporter
-Parsea el endpoint /stat de nginx-rtmp y expone métricas en formato Prometheus.
+Exportador Prometheus para nginx-rtmp.
+Procesa el endpoint /stat de nginx-rtmp y expone las métricas en formato Prometheus.
 
 Métricas expuestas:
   - rtmp_stream_clients        → usuarios conectados por stream
@@ -9,7 +9,7 @@ Métricas expuestas:
   - rtmp_stream_bytes_in_total → bytes totales recibidos
   - rtmp_stream_bytes_out_total→ bytes totales enviados
   - rtmp_stream_up             → stream activo (1) o inactivo (0)
-  - rtmp_server_uptime_seconds → uptime del servidor nginx-rtmp
+  - rtmp_server_uptime_seconds → tiempo de actividad del servidor nginx-rtmp
 """
 
 import os
@@ -20,8 +20,8 @@ import xml.etree.ElementTree as ET
 import requests
 from flask import Flask, Response
 
-# Config
-NGINX_STAT_URL = os.getenv("NGINX_STAT_URL", "http://nginx-stream-rtmp:80/stat")
+# ── Config ────────────────────────────────────────────────────────────────────
+NGINX_STAT_URL = os.getenv("NGINX_STAT_URL", "http://nginx-stream-rtpm:80/stat")
 EXPORTER_PORT  = int(os.getenv("EXPORTER_PORT", "9114"))
 SCRAPE_TIMEOUT = int(os.getenv("SCRAPE_TIMEOUT", "5"))
 
@@ -31,10 +31,10 @@ log = logging.getLogger(__name__)
 app = Flask(__name__)
 
 
-# Parser
+# ── Parser ────────────────────────────────────────────────────────────────────
 
 def _safe_int(element, tag, default=0):
-    """Devuelve el int del subelemento tag, o default si no existe."""
+    """Devuelve el entero del subelemento indicado, o el valor por defecto si no existe."""
     node = element.find(tag)
     if node is not None and node.text:
         try:
@@ -46,8 +46,9 @@ def _safe_int(element, tag, default=0):
 
 def fetch_rtmp_stats():
     """
-    Hace GET a /stat, parsea el XML y devuelve una lista de dicts con las
-    métricas de cada stream activo, más el uptime del servidor.
+    Realiza una petición GET a /stat, procesa el XML y devuelve una lista de
+    diccionarios con las métricas de cada stream activo, junto al tiempo de
+    actividad del servidor.
     """
     try:
         resp = requests.get(NGINX_STAT_URL, timeout=SCRAPE_TIMEOUT)
@@ -62,20 +63,17 @@ def fetch_rtmp_stats():
         log.warning("XML inválido en /stat: %s", exc)
         return None
 
-    # Uptime del servidor (segundos desde el arranque de nginx)
+    # Tiempo de actividad del servidor en segundos desde el arranque de Nginx
     uptime = _safe_int(root, "uptime")
 
-    # Recorre cada <application> (p.ej. "live") y dentro cada <stream> activo.
-    # Un mismo servidor puede tener varias aplicaciones (live, vod, etc.) y
-    # dentro de cada una varios streams simultáneos con distintas stream keys.
     streams = []
     for app_node in root.findall(".//application"):
         app_name = (app_node.findtext("name") or "unknown").strip()
         for stream_node in app_node.findall(".//stream"):
             name = (stream_node.findtext("name") or "unknown").strip()
 
-            # bw_in / bw_out están en bits/s en la spec original de nginx-rtmp;
-            # se dividen entre 8 para convertir a bytes/s (convención de Prometheus)
+            # bw_in / bw_out están en bits/s en la spec original de nginx-rtmp
+            # los dividimos entre 8 para tenerlos en bytes/s
             bw_in  = _safe_int(stream_node, "bw_in")  // 8
             bw_out = _safe_int(stream_node, "bw_out") // 8
 
@@ -93,23 +91,22 @@ def fetch_rtmp_stats():
     return {"uptime": uptime, "streams": streams}
 
 
-# Prometheus text format
+# ── Prometheus text format ────────────────────────────────────────────────────
 
 def build_metrics(stats):
-    """Construye el texto en formato Prometheus exposition format."""
+    """Genera el texto en formato de exposición de Prometheus."""
     lines = []
 
     def gauge(name, help_text, metric_type="gauge"):
         lines.append(f"# HELP {name} {help_text}")
         lines.append(f"# TYPE {name} {metric_type}")
 
-    # Uptime del servidor
-    gauge("rtmp_server_uptime_seconds", "Segundos desde que arrancó nginx-rtmp")
+    # Tiempo de actividad del servidor
+    gauge("rtmp_server_uptime_seconds", "Segundos transcurridos desde el arranque de nginx-rtmp")
     lines.append(f'rtmp_server_uptime_seconds {stats["uptime"]}')
 
-    # Si no hay streams activos, emitimos las métricas de todas formas (sin labels
-    # de stream) para que Grafana muestre 0 en lugar de "No data". Sin esto,
-    # los paneles quedan vacíos cuando no hay nadie transmitiendo.
+    # Si no hay streams activos, emitimos igual las métricas para que Grafana
+    # muestre cero en lugar de "no data"
     if not stats["streams"]:
         for metric, help_text, mtype in [
             ("rtmp_stream_clients",         "Clientes conectados al stream",        "gauge"),
@@ -156,15 +153,15 @@ def build_metrics(stats):
     return "\n".join(lines) + "\n"
 
 
-# Endpoints Flask
+# ── Endpoints Flask ───────────────────────────────────────────────────────────
 
 @app.route("/metrics")
 def metrics():
     stats = fetch_rtmp_stats()
     if stats is None:
-        # nginx no responde: devolvemos solo el uptime a 0 para no romper Prometheus
+        # Nginx no responde: se devuelve únicamente rtmp_up a 0 para no romper Prometheus
         body = (
-            "# HELP rtmp_up Exporter capaz de contactar con nginx-rtmp\n"
+            "# HELP rtmp_up Indica si el exportador puede contactar con nginx-rtmp\n"
             "# TYPE rtmp_up gauge\n"
             "rtmp_up 0\n"
         )
@@ -179,9 +176,9 @@ def health():
     return {"status": "ok", "target": NGINX_STAT_URL}, 200
 
 
-# Arranque
+# ── Arranque ──────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    log.info("rtmp-exporter arrancando en puerto %d", EXPORTER_PORT)
-    log.info("Scrapeando → %s", NGINX_STAT_URL)
+    log.info("rtmp-exporter arrancando en el puerto %d", EXPORTER_PORT)
+    log.info("Origen de métricas: %s", NGINX_STAT_URL)
     app.run(host="0.0.0.0", port=EXPORTER_PORT)

@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>NginxRTMP · Recordings</title>
+    <link rel="icon" href="/images/favicon.png" type="image/x-icon"/>
+    <link rel="stylesheet" href="/css/common.css"/>
+    <link rel="stylesheet" href="/css/recordings.css"/>
+</head>
+<body>
+
+<div class="header">
+    <h1><span>&#9679;</span> NginxRTMP · Recordings</h1>
+    <nav class="header-nav">
+        <a href="/">Live</a>
+        <a href="/recordings.html" class="active">Recordings</a>
+    </nav>
+</div>
+
+<!-- Layout en dos columnas: sidebar (lista de fechas) + main (tarjetas + player) -->
+<div class="layout">
+    <div class="sidebar">
+        <div class="sidebar-title">Dates</div>
+        <!-- Lista de fechas — la rellena loadDates() desde /api/recordings -->
+        <div id="dateList">
+            <div class="sidebar-empty">
+                <div class="loading-spinner"></div>
+                <p style="margin-top:12px">Loading...</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="main">
+        <!-- Player inline — oculto hasta que se hace clic en una tarjeta -->
+        <div class="player-container" id="playerContainer">
+            <video id="videoPlayer" controls></video>
+            <div class="player-info">
+                <span class="now-playing" id="nowPlaying">-</span>
+                <div class="player-buttons">
+                    <!-- Descarga apunta directamente al .ts en /recordings/{fecha}/{fichero} -->
+                    <a class="player-btn" id="downloadBtn" href="#" download>Download</a>
+                    <button class="player-btn close" onclick="closePlayer()">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <h2 class="main-title" id="mainTitle">Select a date</h2>
+        <p class="main-subtitle" id="mainSubtitle">Choose a date from the sidebar to view recordings</p>
+
+        <!-- Rejilla de tarjetas — la rellena renderRecordings() -->
+        <div id="content">
+            <div class="empty-state">
+                <div class="emoji">&#128249;</div>
+                <p>Select a date from the sidebar to browse recorded sessions.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- hls.js: reproduce HLS en navegadores sin soporte nativo (Chrome, Firefox...) -->
+<!-- Se usa para los playlists VOD .m3u8 que genera /api/recordings/{fecha}/{fichero}/playlist.m3u8 -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+<script>
+    let currentDate = null;    // fecha seleccionada actualmente (YYYY-MM-DD)
+    let currentHls = null;     // instancia activa de Hls.js; hay que destruirla antes de crear una nueva
+
+    //  Carga de datos
+
+    // loadDates: pide al API la lista de fechas que tienen grabaciones.
+    // Respuesta esperada: { dates: [{ date: "YYYY-MM-DD", count: N }, ...] }
+    // El servidor devuelve las fechas ordenadas de más reciente a más antigua.
+    async function loadDates() {
+        try {
+            const resp = await fetch('/api/recordings');
+            const data = await resp.json();
+            renderDates(data.dates);
+        } catch (e) {
+            console.error('Error loading dates:', e);
+            document.getElementById('dateList').innerHTML = '<div class="sidebar-empty">Error loading dates</div>';
+        }
+    }
+
+    // renderDates: construye la lista de fechas en el sidebar.
+    // Hacer clic en una fecha llama a selectDate().
+    // La primera fecha (la más reciente) se selecciona automáticamente al cargar.
+    function renderDates(dates) {
+        const container = document.getElementById('dateList');
+        if (!dates || dates.length === 0) {
+            container.innerHTML = '<div class="sidebar-empty">No recordings yet</div>';
+            return;
+        }
+        container.innerHTML = dates.map(d => `
+            <div class="date-item" data-date="${d.date}" onclick="selectDate('${d.date}')">
+                <span class="date-label">${d.date}</span>
+                <span class="date-count">${d.count}</span>
+            </div>
+        `).join('');
+        // Seleccionar la fecha más reciente para que la página no quede vacía
+        selectDate(dates[0].date);
+    }
+
+    // selectDate: pide al API los ficheros de grabación de una fecha concreta.
+    // Respuesta esperada: { files: [{ name, display_time, size_mb, url, download_url }] }
+    //   url          → playlist .m3u8 VOD para reproducción con hls.js
+    //   download_url → URL directa al .ts para descarga
+    async function selectDate(dateStr) {
+        currentDate = dateStr;
+        // Marcar la fecha activa en el sidebar
+        document.querySelectorAll('.date-item').forEach(el => {
+            el.classList.toggle('active', el.dataset.date === dateStr);
+        });
+        document.getElementById('mainTitle').textContent = formatDate(dateStr);
+        document.getElementById('mainSubtitle').textContent = 'Loading recordings...';
+        document.getElementById('content').innerHTML =
+            '<div style="text-align:center;padding:40px"><div class="loading-spinner"></div></div>';
+        try {
+            const resp = await fetch(`/api/recordings/${dateStr}`);
+            const data = await resp.json();
+            renderRecordings(data.files);
+        } catch (e) {
+            console.error('Error loading recordings:', e);
+            document.getElementById('content').innerHTML =
+                '<div class="empty-state"><p>Error loading recordings</p></div>';
+        }
+    }
+
+    // renderRecordings: construye la rejilla de tarjetas para los ficheros del día.
+    // Cada tarjeta muestra la hora de inicio y el tamaño en MB.
+    function renderRecordings(files) {
+        const subtitle = document.getElementById('mainSubtitle');
+        if (!files || files.length === 0) {
+            subtitle.textContent = 'No recordings found for this date';
+            document.getElementById('content').innerHTML =
+                '<div class="empty-state"><div class="emoji">&#128193;</div><p>No recordings for this date</p></div>';
+            return;
+        }
+        subtitle.textContent = `${files.length} recording${files.length !== 1 ? 's' : ''}`;
+
+        const grid = document.createElement('div');
+        grid.className = 'recordings-grid';
+        files.forEach(file => {
+            const card = document.createElement('div');
+            card.className = 'recording-card';
+            card.onclick = () => playRecording(file, card);
+            card.innerHTML = `
+                <div class="card-icon">&#9654;</div>
+                <div class="card-details">
+                    <div class="card-time">${file.display_time}</div>
+                    <div class="card-meta">${file.size_mb} MB</div>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+        document.getElementById('content').innerHTML = '';
+        document.getElementById('content').appendChild(grid);
+    }
+
+    //  Reproducción
+
+    // playRecording: carga un fichero .ts en el player inline usando hls.js.
+    // El campo 'url' del API apunta al playlist VOD .m3u8 que genera dinámicamente
+    // recordings-api en /api/recordings/{fecha}/{fichero}/playlist.m3u8.
+    // Se usa hls.js porque los .ts sin envolver no son directamente seekables
+    // en la mayoría de navegadores. Safari tiene soporte HLS nativo.
+    function playRecording(file, cardEl) {
+        const video = document.getElementById('videoPlayer');
+        const container = document.getElementById('playerContainer');
+
+        // Destruir la instancia anterior antes de crear una nueva
+        if (currentHls) {
+            currentHls.destroy();
+            currentHls = null;
+        }
+
+        // Marcar la tarjeta activa y desmarcar la anterior
+        document.querySelectorAll('.recording-card.playing').forEach(el => el.classList.remove('playing'));
+        cardEl.classList.add('playing');
+
+        if (Hls.isSupported()) {
+            // Chrome, Firefox y la mayoría de navegadores de escritorio y Android
+            currentHls = new Hls();
+            currentHls.loadSource(file.url);   // url = /api/recordings/{fecha}/{fichero}/playlist.m3u8
+            currentHls.attachMedia(video);
+            currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
+                video.play().catch(() => {});
+            });
+            currentHls.on(Hls.Events.ERROR, (event, data) => {
+                console.error('HLS error:', data);
+            });
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            // Safari: soporte HLS nativo, no hace falta hls.js
+            video.src = file.url;
+            video.play().catch(() => {});
+        }
+
+        // El botón de descarga apunta al .ts directamente (sin pasar por hls.js)
+        document.getElementById('downloadBtn').href = file.download_url;
+        document.getElementById('nowPlaying').textContent = `${currentDate}  ${file.display_time}`;
+        // Mostrar el player y hacer scroll hasta él
+        container.classList.add('visible');
+        container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // closePlayer: detiene la reproducción, limpia hls.js y oculta el player.
+    function closePlayer() {
+        const video = document.getElementById('videoPlayer');
+        if (currentHls) {
+            currentHls.destroy();
+            currentHls = null;
+        }
+        video.pause();
+        video.removeAttribute('src');   // liberar el recurso multimedia
+        document.getElementById('playerContainer').classList.remove('visible');
+        document.querySelectorAll('.recording-card.playing').forEach(el => el.classList.remove('playing'));
+    }
+
+    // formatDate: convierte "YYYY-MM-DD" a una cadena legible.
+    function formatDate(dateStr) {
+        try {
+            // Añadir T00:00:00 para evitar que el offset UTC→local desplace la fecha
+            const d = new Date(dateStr + 'T00:00:00');
+            return d.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        } catch { return dateStr; }
+    }
+
+    // Arrancar: cargar la lista de fechas desde el API al abrir la página
+    loadDates();
+</script>
+</body>
+</html>

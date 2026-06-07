@@ -1,7 +1,4 @@
-/* LIVE DOT
-   Punto verde parpadeante en el título del header que indica servidor activo.
-   La animación 'pulse-dot' reduce la opacidad al 30 % en el punto medio para
-   simular un latido. Se reutiliza también en el estado del stream. */
+/* ---- LIVE DOT ---- */
 .header h1 .live-dot {
     display: inline-block;
     width: 8px;
@@ -17,9 +14,7 @@
     50% { opacity: 0.3; }
 }
 
-/* LAYOUT DEL CONTENIDO
-   Columna centrada con ancho máximo para mantener el player legible en
-   pantallas anchas. */
+/* ---- CONTENT ---- */
 .content {
     max-width: 960px;
     margin: 0 auto;
@@ -37,9 +32,7 @@
     border: 1px solid var(--border);
 }
 
-/* CONTROLES EXTERNOS AL PLAYER
-   Botones de recargar y pantalla completa debajo del player. Separados de los
-   controles de Video.js para acciones menos frecuentes. */
+/* ---- CONTROLS ---- */
 .controls {
     display: flex;
     align-items: center;
@@ -66,9 +59,7 @@
     background: var(--accent-soft);
 }
 
-/* LATENCY BADGE
-   Muestra el protocolo activo (HLS/DASH) y el estado de la señal.
-   Usa JetBrains Mono para look técnico/monoespaciado. */
+/* ---- LATENCY BADGE ---- */
 .latency-badge {
     font-family: 'JetBrains Mono', monospace;
     font-size: 13px;
@@ -85,7 +76,7 @@
 .video-js {
     width: 100%;
     height: auto;
-    aspect-ratio: 16/9;   /* mantiene proporción estándar de video */
+    aspect-ratio: 16/9;
     border-radius: 12px;
     overflow: hidden;
     border: 1px solid var(--border);
@@ -102,12 +93,12 @@
     line-height: 60px;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);  /* centra el botón exactamente */
+    transform: translate(-50%, -50%);
     margin: 0;
 }
 
 .video-js:hover .vjs-big-play-button {
-    background: var(--accent);  /* relleno sólido al hacer hover */
+    background: var(--accent);
 }
 
 /* Barra de controles inferior con degradado para mayor legibilidad sobre el video */
@@ -116,9 +107,7 @@
     border-radius: 0 0 12px 12px;
 }
 
-/* INFO STRIP
-   Franja debajo del player con la stream key activa y el indicador de estado.
-   Permite al usuario saber qué clave está usando y si hay señal. */
+/* Info strip debajo del player */
 .stream-info {
     display: flex;
     align-items: center;
@@ -137,11 +126,9 @@
 }
 
 .stream-info .stream-key span {
-    color: var(--text);  /* la clave en sí resalta sobre la etiqueta */
+    color: var(--text);
 }
 
-/* Indicador de estado con pseudoelemento ::before como punto de color.
-   En estado Offline el punto es rojo (--danger); con clase .live es verde. */
 .status-dot {
     display: flex;
     align-items: center;
@@ -162,15 +149,14 @@
 
 .status-dot.live::before {
     background: var(--green);
-    animation: pulse-dot 2s ease-in-out infinite;  /* parpadeo sincronizado con el live-dot del header */
+    animation: pulse-dot 2s ease-in-out infinite;
 }
 
 .status-dot.live {
     color: var(--green);
 }
 
-/* SECCIÓN DE ENDPOINTS
-   Lista de links directos a los protocolos de reproducción disponibles. */
+/* Separador de sección */
 .section-label {
     font-size: 11px;
     font-weight: 600;
@@ -180,13 +166,13 @@
     margin: 32px 0 12px;
 }
 
+/* Enlaces de protocolo */
 .proto-list {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
 }
 
-/* Cada tag es un link directo al endpoint (m3u8, mpd, rtmp://) */
 .proto-tag {
     font-family: 'JetBrains Mono', monospace;
     font-size: 12px;

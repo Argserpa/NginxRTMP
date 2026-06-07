@@ -1,7 +1,3 @@
-# DaemonSet: node-exporter
-# Un DaemonSet garantiza que haya exactamente un pod de node-exporter en cada
-# nodo del clúster. Esto es necesario porque las métricas del SO son por nodo.
-# Expone en :9100/metrics: CPU, RAM, disco, red, filesystem, procesos, etc.
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -18,35 +14,29 @@ spec:
       labels:
         app: node-exporter
     spec:
-      # Toleration NoSchedule: permite que el pod corra en nodos con el taint
-      # 'NoSchedule', incluyendo el nodo control-plane de minikube, que por
-      # defecto rechaza pods de workload.
+      # Tolerations para su ejecución en todos los nodos, incluido el control-plane
       tolerations:
         - effect: NoSchedule
           operator: Exists
-      hostPID: true  # Acceso al namespace PID del host para métricas de procesos
+      hostPID: true    # Necesario para acceder a las métricas de procesos del host
       containers:
         - name: node-exporter
           image: prom/node-exporter:latest
           imagePullPolicy: IfNotPresent
           args:
-            # Indica que el filesystem raíz del host está montado en /host
-            # dentro del contenedor, no en / (que es el FS del contenedor).
             - "--path.rootfs=/host"
           ports:
             - name: metrics
               containerPort: 9100
-              hostPort: 9100  # Expuesto directamente en la IP del nodo, sin Service
+              hostPort: 9100  # Expuesto directamente en la IP del nodo
           securityContext:
-            readOnlyRootFilesystem: true  # El contenedor no puede escribir en su propio FS
+            readOnlyRootFilesystem: true
             runAsNonRoot: true
-            runAsUser: 65534              # Usuario 'nobody': mínimos privilegios
+            runAsUser: 65534
           volumeMounts:
             - name: rootfs
               mountPath: /host
               readOnly: true
-              # HostToContainer: los mounts del host se propagan al contenedor
-              # pero no al revés (necesario para ver filesystem mounts del host).
               mountPropagation: HostToContainer
           resources:
             requests:
@@ -58,13 +48,9 @@ spec:
       volumes:
         - name: rootfs
           hostPath:
-            path: /  # Monta el filesystem raíz del nodo
+            path: /
 ---
-# Service: node-exporter (headless)
-# clusterIP: None crea un Service headless: el DNS resuelve directamente a las
-# IPs individuales de cada pod del DaemonSet, en lugar de a una IP virtual.
-# Prometheus puede así scrapear cada nodo por separado y etiquetarlos
-# individualmente en las métricas.
+# Service headless: Prometheus accede a cada pod por su IP individual
 apiVersion: v1
 kind: Service
 metadata:
@@ -74,7 +60,7 @@ metadata:
     app: node-exporter
 spec:
   type: ClusterIP
-  clusterIP: None  # headless — resuelve a IPs de cada pod del DaemonSet
+  clusterIP: None  # Headless: resuelve a las IP de cada pod del DaemonSet
   selector:
     app: node-exporter
   ports:

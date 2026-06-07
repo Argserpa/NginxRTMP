@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recordings-api
+  namespace: streaming
+  labels:
+    app: recordings-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: recordings-api
+  template:
+    metadata:
+      labels:
+        app: recordings-api
+    spec:
+      containers:
+        - name: recordings-api
+          image: recordings-api:latest
+          imagePullPolicy: Never  # Imagen local construida en minikube
+          ports:
+            - name: http
+              containerPort: 8081
+              protocol: TCP
+          env:
+            - name: RECORD_DIR
+              value: /recordings
+          volumeMounts:
+            # Mismo PVC que escribe nginx-stream; aquí solo se lee para listar las grabaciones
+            - name: recordings
+              mountPath: /recordings
+              readOnly: true
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          livenessProbe:
+            httpGet:
+              path: /api/recordings
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 30
+      volumes:
+        - name: recordings
+          persistentVolumeClaim:
+            claimName: nginx-recordings  # definido en nginx-stream.yaml
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: recordings-api
+  namespace: streaming
+  labels:
+    app: recordings-api
+spec:
+  type: ClusterIP  # solo lo consume nginx-stream vía proxy_pass; no se expone fuera
+  selector:
+    app: recordings-api
+  ports:
+    - name: http
+      port: 8081
+      targetPort: 8081
+      protocol: TCP

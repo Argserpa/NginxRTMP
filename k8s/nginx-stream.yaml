@@ -1,9 +1,18 @@
-# Deployment: nginx-stream
-# Servidor principal de streaming. Corre el binario nginx compilado con
-# nginx-rtmp-module. Gestiona tres protocolos:
-#   - RTMP  (1935): ingestión de streams desde OBS, ffmpeg, etc.
-#   - HTTP  (80)  : player web, endpoints HLS/DASH, /nginx_status y /stat
-#   - HTTPS (443) : igual que HTTP pero con TLS
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nginx-recordings
+  namespace: streaming
+  labels:
+    app: nginx-stream
+spec:
+  accessModes:
+    - ReadWriteOnce  # Una sola réplica de nginx-stream escribe las grabaciones
+  resources:
+    requests:
+      storage: 5Gi
+  # storageClassName: standard  # Por defecto en minikube; descomentar si se usa otro
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -12,9 +21,7 @@ metadata:
   labels:
     app: nginx-stream
 spec:
-  # RTMP no escala horizontalmente sin almacenamiento compartido (los segmentos
-  # HLS/DASH son efímeros en /tmp de cada pod). Mantener una sola réplica.
-  replicas: 1
+  replicas: 1  # RTMP no escala horizontalmente sin almacenamiento compartido; se mantiene una réplica
   selector:
     matchLabels:
       app: nginx-stream
@@ -26,7 +33,7 @@ spec:
       containers:
         - name: nginx-stream
           image: nginx-rtmp-server:latest
-          imagePullPolicy: Never  # imagen local cargada en minikube con 'minikube image load'
+          imagePullPolicy: Never  # Imagen local construida en minikube
           ports:
             - name: rtmp
               containerPort: 1935
@@ -37,31 +44,20 @@ spec:
             - name: https
               containerPort: 443
               protocol: TCP
-
-          # Opciones de montaje en runtime (descomentar según se necesite).
-          #
-          # 1) nginx.conf desde ConfigMap → permite cambiar config sin recompilar
-          #    la imagen. Crear primero un ConfigMap con el contenido de
-          #    nginx/nginx.conf:  kubectl create configmap nginx-config \
-          #        --from-file=nginx.conf=../nginx/nginx.conf -n streaming
-          #
-          # 2) Certificados TLS desde Secret → necesario para HTTPS:443.
-          #    El Secret se llama `nginx-tls` y se crea siguiendo las
-          #    instrucciones en k8s/02-tls-secret.yaml.
-          #    Recordar también descomentar el bloque `server { listen 443 ssl; }`
-          #    en nginx/nginx.conf.
-          # volumeMounts:
-          #   - name: nginx-config
-          #     mountPath: /usr/local/nginx/conf/nginx.conf
-          #     subPath: nginx.conf
-          #   - name: tls-certs
-          #     mountPath: /usr/local/nginx/certs
-          #     readOnly: true
-
-          # Recursos
-          # requests: lo que K8s garantiza al pod en el nodo
-          # limits  : máximo consumible; si lo supera, el pod es evicted (memoria)
-          #           o throttled (CPU)
+          volumeMounts:
+            # Volumen persistente para las grabaciones (record_path /recordings)
+            - name: recordings
+              mountPath: /recordings
+            # ----- Opcional: montaje de nginx.conf desde un ConfigMap -----
+            # Permite modificar la configuración sin recompilar la imagen.
+            # Para activarlo, descomentar el siguiente bloque y crear un ConfigMap
+            # con el contenido de nginx.conf.
+            # - name: nginx-config
+            #   mountPath: /usr/local/nginx/conf/nginx.conf
+            #   subPath: nginx.conf
+            # - name: tls-certs
+            #   mountPath: /usr/local/nginx/certs
+            #   readOnly: true
           resources:
             requests:
               cpu: "200m"
@@ -69,24 +65,17 @@ spec:
             limits:
               cpu: "500m"
               memory: "256Mi"
-
-      # volumes:
-      #   - name: nginx-config
-      #     configMap:
-      #       name: nginx-config
-      #   - name: tls-certs
-      #     secret:
-      #       secretName: nginx-tls
-      #       # Crear con:
-      #       #   kubectl create secret tls nginx-tls \
-      #       #       --cert=../certs/nginx.crt --key=../certs/nginx.key -n streaming
-      #       # (Ver k8s/02-tls-secret.yaml para más detalles.)
+      volumes:
+        - name: recordings
+          persistentVolumeClaim:
+            claimName: nginx-recordings
+        # - name: nginx-config
+        #   configMap:
+        #     name: nginx-config
+        # - name: tls-certs
+        #   secret:
+        #     secretName: nginx-tls  # kubectl create secret tls nginx-tls --cert=... --key=...
 ---
-# Service: nginx-stream
-# Expone el Deployment externamente. LoadBalancer asigna una IP externa del
-# clúster; en minikube requiere ejecutar 'minikube tunnel' en otra terminal.
-# Los exporters (nginx-exporter, rtmp-exporter) se conectan a este Service
-# por su nombre DNS interno: http://nginx-stream:80/nginx_status y /stat.
 apiVersion: v1
 kind: Service
 metadata:
@@ -95,7 +84,7 @@ metadata:
   labels:
     app: nginx-stream
 spec:
-  type: LoadBalancer
+  type: LoadBalancer  # Requiere ejecutar `minikube tunnel` en una terminal aparte
   selector:
     app: nginx-stream
   ports:

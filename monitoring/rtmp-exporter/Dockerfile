@@ -1,16 +1,12 @@
-# Imagen ligera de Python 3.10 para minimizar el tamaño final del contenedor.
-# 'slim' excluye herramientas de compilación que no se necesitan en ejecución.
 FROM python:3.10-slim
 
 WORKDIR /app
 
-# Dependencias
-# Se copian e instalan primero para aprovechar la caché de capas de Docker:
-# si solo cambia exporter.py, esta capa no se volverá a construir, acelerando el build.
+# Dependencias en una capa independiente para aprovechar la caché
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Código fuente del exporter
+# Código
 COPY exporter.py .
 
 # Puerto en el que Flask sirve las métricas en formato Prometheus exposition.

@@ -5,36 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NginxRTMP · Live</title>
     <link rel="icon" href="/images/favicon.png" type="image/x-icon"/>
-    <!-- Estilos compartidos (variables CSS, header, spinner, empty-state) -->
     <link rel="stylesheet" href="css/common.css" />
-    <!-- Estilos específicos de la página Live (player, controles, badges) -->
     <link rel="stylesheet" href="css/live.css" />
-    <!-- Video.js: biblioteca de reproducción HLS/DASH en el navegador -->
+
+    <!-- Video.js -->
     <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
 </head>
 <body>
 
-<!-- HEADER: barra superior con título animado y navegación -->
+<!-- HEADER -->
 <header class="header">
     <h1>
-        <!-- Punto verde parpadeante que indica que el servidor está activo -->
         <span class="live-dot"></span>
         NginxRTMP
     </h1>
     <nav class="header-nav">
         <a href="/" class="active">Live</a>
+        <a href="/recordings.html">Recordings</a>
     </nav>
 </header>
 
-<!-- CONTENIDO PRINCIPAL -->
+<!-- MAIN CONTENT -->
 <main class="content">
 
-    <!-- Player de video
-         Video.js inicializa este elemento y lo reemplaza con su propio DOM.
-         'data-setup={}' activa la inicialización automática.
-         Se proveen dos fuentes: HLS (.m3u8) y DASH (.mpd) para máxima
-         compatibilidad de reproductores. Video.js selecciona la primera
-         que el navegador soporte. -->
+    <!-- Player -->
     <video
             id="stream-player"
             class="video-js vjs-default-skin"
@@ -52,16 +46,14 @@
         </p>
     </video>
 
-    <!-- Controles adicionales
-         Botones fuera de la barra de Video.js para acciones menos frecuentes. -->
+    <!-- Controls -->
     <div class="controls">
         <button id="btn-reload">↺ Recargar stream</button>
-        <!-- Badge que muestra el protocolo activo y el estado de latencia -->
         <span class="latency-badge" id="latency-label">HLS · esperando…</span>
         <button id="btn-fullscreen">⛶ Pantalla completa</button>
     </div>
 
-    <!-- Info strip: stream key activo y estado en directo/offline -->
+    <!-- Info strip -->
     <div class="stream-info">
         <!-- stream key: debe coincidir con la clave usada en OBS/ffmpeg -->
         <span class="stream-key">stream key: <span>mi_stream</span></span>
@@ -69,7 +61,7 @@
         <span class="status-dot" id="status-dot">Offline</span>
     </div>
 
-    <!-- Endpoints disponibles: links directos a cada protocolo de reproducción -->
+    <!-- Endpoints -->
     <p class="section-label">Endpoints disponibles</p>
     <div class="proto-list">
         <a class="proto-tag" href="/live/mi_stream.m3u8" target="_blank">HLS · .m3u8</a>
@@ -79,7 +71,7 @@
 
 </main>
 
-<!-- Video.js core -->
+<!-- Scripts -->
 <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
 <!-- VHS (Video.js HTTP Streaming): maneja la descarga y buffering de HLS/DASH -->
 <script src="https://unpkg.com/@videojs/http-streaming@3.9.0/dist/videojs-http-streaming.min.js"></script>
@@ -101,13 +93,13 @@
         }
     });
 
-    var statusDot    = document.getElementById('status-dot');
+    var statusDot   = document.getElementById('status-dot');
     var latencyLabel = document.getElementById('latency-label');
 
-    // Eventos del player: actualizan el estado visual
+    // Detección del estado del stream
     player.on('playing', function () {
         statusDot.textContent = 'En directo';
-        statusDot.classList.add('live');       // aplica color verde + animación
+        statusDot.classList.add('live');
         latencyLabel.textContent = 'HLS · en vivo';
     });
 
@@ -117,7 +109,6 @@
     });
 
     player.on('error',  function () {
-        // El stream puede no estar activo todavía; mostrar Offline sin alarmar.
         statusDot.textContent = 'Offline';
         statusDot.classList.remove('live');
         latencyLabel.textContent = 'HLS · sin señal';

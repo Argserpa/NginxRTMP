@@ -15,9 +15,8 @@ namespace: streaming
 resources:
   - 00-namespace.yaml       # Namespace 'streaming' — debe ser el primero
   - 01-secrets.yaml         # Secret con credenciales de Grafana
-  # - 02-tls-secret.yaml    # Secret TLS para HTTPS:443 (descomentar al activar HTTPS;
-                            # ver instrucciones dentro del propio archivo)
   - nginx-stream.yaml       # Servidor RTMP principal (Deployment + Service LoadBalancer)
+  - recordings-api.yaml     # Servidor de grabaciones
   - nginx-exporter.yaml     # Exporter de métricas HTTP nginx (Deployment + Service ClusterIP)
   - rtmp-exporter.yaml      # Exporter de métricas RTMP custom (Deployment + Service ClusterIP)
   - prometheus.yaml         # ConfigMap + PVC + Deployment + Service ClusterIP
