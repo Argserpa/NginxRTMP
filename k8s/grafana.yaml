@@ -32,7 +32,7 @@ spec:
         runAsUser: 472
       containers:
         - name: grafana
-          image: grafana/grafana:latest
+          image: grafana/grafana:11.4.0
           imagePullPolicy: IfNotPresent
           env:
             - name: GF_SECURITY_ADMIN_USER
@@ -53,11 +53,11 @@ spec:
               mountPath: /var/lib/grafana
           resources:
             requests:
-              cpu: "100m"
-              memory: "128Mi"
+              cpu: "250m"
+              memory: "512Mi"
             limits:
-              cpu: "300m"
-              memory: "256Mi"
+              cpu: "500m"
+              memory: "1Gi"
       volumes:
         - name: data
           persistentVolumeClaim:

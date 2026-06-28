@@ -70,6 +70,7 @@
 <!-- Scripts -->
 <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
 <script src="https://unpkg.com/@videojs/http-streaming@3.9.0/dist/videojs-http-streaming.min.js"></script>
+<script src="js/qoe-meter.js"></script>
 
 <script>
     var player = videojs('stream-player', {
@@ -81,6 +82,18 @@
             }
         }
     });
+    QoE.attachVideoJs(player);
+
+    // Identificador único por pestaña/reproductor. Se añade como ?vid=... al pedir
+    // el playlist para que rtmp-exporter cuente espectadores web por SESIÓN y no por
+    // IP: así varias pestañas o clientes tras la misma IP/proxy se cuentan por separado.
+    var viewerId = (window.crypto && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+    player.src([
+        { src: '/live/mi_stream.m3u8?vid=' + viewerId, type: 'application/x-mpegURL' },
+        { src: '/live/mi_stream.mpd?vid='  + viewerId, type: 'application/dash+xml'  }
+    ]);
 
     var statusDot   = document.getElementById('status-dot');
     var latencyLabel = document.getElementById('latency-label');
