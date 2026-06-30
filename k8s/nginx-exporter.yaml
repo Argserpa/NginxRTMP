@@ -19,10 +19,11 @@ spec:
         - name: nginx-exporter
           image: nginx/nginx-prometheus-exporter:latest
           imagePullPolicy: IfNotPresent
-          env:
-            # 'nginx-stream' corresponde al Service de Kubernetes, no al contenedor Docker
-            - name: NGINX_STUB_STATUS_URL
-              value: "http://nginx-stream:80/nginx_status"
+          # En la v1.x del exporter la URL de stub_status se pasa por flag de CLI;
+          # la antigua env var NGINX_STUB_STATUS_URL se ignora (de ahí nginx_up=0).
+          # 'nginx-stream' es el Service de Kubernetes, no el contenedor Docker.
+          args:
+            - --nginx.scrape-uri=http://nginx-stream:80/nginx_status
           ports:
             - name: metrics
               containerPort: 9113
