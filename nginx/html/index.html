@@ -35,6 +35,8 @@
             controls
             preload="auto"
             playsinline
+            autoplay
+            muted
             data-setup='{}'
     >
         <source src="/live/mi_stream.m3u8" type="application/x-mpegURL" />
@@ -90,6 +92,21 @@
     var viewerId = (window.crypto && crypto.randomUUID)
         ? crypto.randomUUID()
         : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+
+    // QoE: arrancar la medición JUSTO antes de fijar el src (dispara la carga del
+    // manifest y, con autoplay+muted, la reproducción real sin gesto del usuario).
+    // Mismo qoe-meter.js que el Proyecto 2. Metadatos del escenario por query
+    // params en la URL: ?escenario=E2&parametro=N=10&rep=1 (sistema por defecto: P1)
+    if (window.QoE) {
+        var qp = new URLSearchParams(location.search);
+        QoE.start({
+            sistema:    qp.get('sistema')   || 'P1',
+            escenario:  qp.get('escenario') || '',
+            parametro:  qp.get('parametro') || '',
+            repeticion: qp.get('rep')       || ''
+        });
+    }
+
     player.src([
         { src: '/live/mi_stream.m3u8?vid=' + viewerId, type: 'application/x-mpegURL' },
         { src: '/live/mi_stream.mpd?vid='  + viewerId, type: 'application/dash+xml'  }
