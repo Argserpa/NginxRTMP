@@ -35,6 +35,8 @@
             controls
             preload="auto"
             playsinline
+            autoplay
+            muted
             data-setup='{}'
     >
         <!-- HLS: soportado nativamente en Safari; Video.js lo maneja en Chrome/Firefox -->
@@ -75,6 +77,7 @@
 <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
 <!-- VHS (Video.js HTTP Streaming): maneja la descarga y buffering de HLS/DASH -->
 <script src="https://unpkg.com/@videojs/http-streaming@3.9.0/dist/videojs-http-streaming.min.js"></script>
+<script src="js/qoe-meter.js"></script>
 
 <script>
     // Inicialización del player
@@ -92,6 +95,33 @@
             }
         }
     });
+    QoE.attachVideoJs(player);
+
+    // Identificador único por pestaña/reproductor. Se añade como ?vid=... al pedir
+    // el playlist para que rtmp-exporter cuente espectadores web por SESIÓN y no por
+    // IP: así varias pestañas o clientes tras la misma IP/proxy se cuentan por separado.
+    var viewerId = (window.crypto && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+
+    // QoE: arrancar la medición JUSTO antes de fijar el src (dispara la carga del
+    // manifest y, con autoplay+muted, la reproducción real sin gesto del usuario).
+    // Mismo qoe-meter.js que el Proyecto 2. Metadatos del escenario por query
+    // params en la URL: ?escenario=E2&parametro=N=10&rep=1 (sistema por defecto: P1)
+    if (window.QoE) {
+        var qp = new URLSearchParams(location.search);
+        QoE.start({
+            sistema:    qp.get('sistema')   || 'P1',
+            escenario:  qp.get('escenario') || '',
+            parametro:  qp.get('parametro') || '',
+            repeticion: qp.get('rep')       || ''
+        });
+    }
+
+    player.src([
+        { src: '/live/mi_stream.m3u8?vid=' + viewerId, type: 'application/x-mpegURL' },
+        { src: '/live/mi_stream.mpd?vid='  + viewerId, type: 'application/dash+xml'  }
+    ]);
 
     var statusDot   = document.getElementById('status-dot');
     var latencyLabel = document.getElementById('latency-label');

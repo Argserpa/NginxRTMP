@@ -120,6 +120,10 @@ Luego obtener la IP asignada:
 kubectl get svc nginx-stream -n streaming
 # Buscar la columna EXTERNAL-IP (ya no debería estar <pending>)
 ```
+Exponer los puertos para la conexión desde la LAN 
+```bash
+kubectl port-forward --address 0.0.0.0 -n streaming svc/nginx-stream 1935:1935 8080:80
+```
 
 - **Stream RTMP** (OBS): `rtmp://<EXTERNAL-IP>:1935/live`  →  stream key: `mi_stream`
 - **Página web (en vivo)**: `http://<EXTERNAL-IP>`
@@ -139,6 +143,92 @@ Con el mapeo `80 -> 3xxxx` y `1935 -> 3yyyy` mostrado en la columna `PORT(S)`:
 
 - **Página web**: `http://<NODE-IP>:<nodePort-de-80>`
 - **Stream RTMP** (OBS): `rtmp://<NODE-IP>:<nodePort-de-1935>/live`  →  key: `mi_stream`
+
+#### Acceso desde otros dispositivos de la LAN
+
+Con el **driver de Docker**, el clúster vive dentro de un contenedor: tanto la IP
+del nodo (`192.168.49.2`, NodePorts) como la `EXTERNAL-IP` de `minikube tunnel`
+(`10.x.x.x`) son **solo accesibles desde este equipo**, no desde otros
+dispositivos de la red. `minikube tunnel` **no** expone a la LAN. Hay dos formas
+de salvar ese salto; los clientes de la LAN siempre usan la **IP LAN del host**
+(p. ej. `192.168.1.45`):
+
+##### Vía 1 — `kubectl port-forward` (recomendado para pruebas)
+
+```bash
+# Mantener la terminal abierta; --address 0.0.0.0 enlaza todas las interfaces del host
+kubectl port-forward --address 0.0.0.0 -n streaming svc/nginx-stream 1935:1935 8080:80
+```
+
+- **OBS**: `rtmp://<IP-LAN-host>:1935/live`  →  key: `mi_stream`
+- **Web**: `http://<IP-LAN-host>:8080` y `http://<IP-LAN-host>:8080/recordings.html`
+
+> Se mapea HTTP a **8080** porque en este equipo el puerto 80 ya está ocupado.
+> Sencillo y efímero (solo vive mientras la terminal está abierta), pero
+> `port-forward` puede **cortarse en emisiones largas de alto bitrate** porque el
+> tráfico pasa por un proceso en espacio de usuario.
+
+##### Vía 2 — DNAT con `iptables` (más robusto para emisiones largas)
+
+Reenvía a nivel de kernel el puerto del host hacia el NodePort de minikube, sin
+ningún proceso en el camino de datos. Primero hay que averiguar el NodePort de
+RTMP (es **dinámico**, no está fijado en el manifest):
+
+```bash
+kubectl get svc nginx-stream -n streaming -o jsonpath='{.spec.ports[?(@.name=="rtmp")].nodePort}'
+# p. ej. 30305  →  el NodePort de RTMP es 192.168.49.2:30305
+```
+
+```bash
+# 1. Habilitar el reenvío de IP en el kernel (convierte el host en router)
+sudo sysctl -w net.ipv4.ip_forward=1
+
+# 2. DNAT: tráfico entrante de la LAN a host:1935 → NodePort de minikube
+#    Acotar el origen a la LAN (-s) reduce la superficie de exposición:
+sudo iptables -t nat -A PREROUTING -s 192.168.1.0/24 -p tcp --dport 1935 \
+  -j DNAT --to-destination 192.168.49.2:30305
+
+# 3. (Opcional) Mismo redireccionamiento para tráfico generado por el propio host
+sudo iptables -t nat -A OUTPUT -p tcp -d 192.168.1.45 --dport 1935 \
+  -j DNAT --to-destination 192.168.49.2:30305
+
+# 4. MASQUERADE para que los paquetes de respuesta vuelvan por el host
+sudo iptables -t nat -A POSTROUTING -p tcp -d 192.168.49.2 --dport 30305 \
+  -j MASQUERADE
+```
+
+Para **eliminar** las reglas, repetir cada línea cambiando `-A` por `-D`. Las
+reglas se **pierden al reiniciar**; para persistirlas: `sudo apt install
+iptables-persistent && sudo netfilter-persistent save`.
+
+> ⚠️ **El NodePort cambia** si se recrea el clúster/servicio; entonces hay que
+> rehacer las reglas con el nuevo valor.
+
+> #### Implicaciones de seguridad (vía 2)
+>
+> El DNAT de `iptables` es más estable, pero abre un agujero **persistente** en
+> lugar del túnel efímero de `port-forward`. A tener en cuenta:
+>
+> 1. **Puerto abierto permanente vs. efímero.** `port-forward` solo vive mientras
+>    la terminal está abierta y bajo tu control; una regla DNAT guardada queda
+>    como una entrada al clúster fácil de olvidar (mayor superficie de ataque,
+>    sobre todo si el router llega a redirigir puertos a este equipo).
+> 2. **Auth débil y en claro.** RTMP no va cifrado: la stream key (`mi_stream`)
+>    viaja en texto plano, así que cualquiera que esnife la LAN puede capturarla
+>    e inyectar o secuestrar la emisión. El HLS por HTTP (8080) también va en
+>    claro.
+> 3. **Exposición amplia por defecto.** Sin `-s`, la regla PREROUTING acepta
+>    tráfico de cualquier origen que alcance el host en 1935. Acotar a la subred
+>    LAN (o a una IP concreta) es muy recomendable; ver el `-s 192.168.1.0/24`
+>    del ejemplo.
+> 4. **El host pasa a ser router.** `ip_forward=1` habilita el reenvío entre
+>    **todas** las interfaces, no solo esta ruta.
+> 5. **El NodePort ya es amplio de por sí.** Los NodePorts escuchan en todas las
+>    interfaces del nodo; el DNAT solo hace esa accesibilidad concreta desde la LAN.
+>
+> **Mitigaciones:** acotar el origen (`-s`), servir el lado web por **TLS**
+> (existe `02-tls-secret.yaml` para el secret `nginx-tls`) y **borrar las reglas**
+> al terminar las pruebas.
 
 ### Grafana — NodePort
 

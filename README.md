@@ -1,5 +1,5 @@
 # NginxRTMP
-Servidor de medios con Nginx  RTMP
+Servidor de medios con Nginx  RTMP V0 docker localhost.
 
 # Construir y levantar todo
 ``` bash
