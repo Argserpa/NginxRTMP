@@ -210,7 +210,7 @@ iptables-persistent && sudo netfilter-persistent save`.
 > lugar del túnel efímero de `port-forward`. A tener en cuenta:
 >
 > 1. **Puerto abierto permanente vs. efímero.** `port-forward` solo vive mientras
->    la terminal está abierta y bajo tu control; una regla DNAT guardada queda
+>    la terminal está abierta y bajo control directo; una regla DNAT guardada queda
 >    como una entrada al clúster fácil de olvidar (mayor superficie de ataque,
 >    sobre todo si el router llega a redirigir puertos a este equipo).
 > 2. **Auth débil y en claro.** RTMP no va cifrado: la stream key (`mi_stream`)
@@ -233,7 +233,7 @@ iptables-persistent && sudo netfilter-persistent save`.
 ### Grafana — NodePort
 
 ```bash
-# Abre el navegador directamente
+# Esto abre el navegador directamente
 minikube service grafana -n streaming
 
 # O acceder manualmente

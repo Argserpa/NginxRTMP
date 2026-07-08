@@ -19,7 +19,7 @@ contaminadas por el consumo del otro proyecto.
 
 - **Las imágenes NO se borran al tirar el proyecto.** Viven en el docker de
   minikube y se cachean. `kubectl delete` quita pods/services/PVCs, no imágenes.
-  → Solo hay que (re)construir imágenes la **primera vez** o cuando cambias código.
+  → Solo hay que (re)construir imágenes la **primera vez** o cuando cambia el código.
 - **El dashboard de Grafana vive en el PVC `grafana-pvc`.** Al tirar el namespace
   se borra el PVC y **se pierde el dashboard vivo**. Flujo actual = exportar el
   JSON antes y reimportarlo después (ver más abajo). (Alternativa futura:
@@ -46,12 +46,12 @@ Borrar el namespace entero es el teardown más limpio (se lleva pods, services y
 PVCs, así no queda colisión con el otro proyecto):
 
 ```bash
-# Si vas a tirar P1 y tenías cambios en el dashboard de Grafana SIN exportar:
-#   abre Grafana (port-forward) y exporta el JSON ANTES de borrar. Ver sección Grafana.
+# Si se va a tirar P1 y hay cambios en el dashboard de Grafana sin exportar:
+#   abrir Grafana (port-forward) y exportar el JSON antes de borrar. Ver sección Grafana.
 
 kubectl delete namespace streaming
 
-# Esperar a que termine de eliminarse (es asíncrono); no apliques el otro hasta que NO exista:
+# Esperar a que termine de eliminarse (es asíncrono); no aplicar el otro hasta que no exista:
 kubectl get ns streaming -w     # Ctrl-C cuando dé "NotFound"
 ```
 
@@ -92,16 +92,16 @@ kubectl apply -k k8s/
 kubectl -n streaming get pods -w
 ```
 
-> Si las imágenes ya estaban cacheadas y no cambió el código, **sáltate los
-> `docker build`** y ve directo al `kubectl apply -k k8s/`.
+> Si las imágenes ya estaban cacheadas y no cambió el código, **se pueden saltar
+> los `docker build`** e ir directo al `kubectl apply -k k8s/`.
 
 ---
 
 ## 3) Grafana — exportar antes / reimportar después (flujo PVC)
 
-Mientras el dashboard viva en el PVC, cada vez que tires el namespace lo pierdes.
+Mientras el dashboard viva en el PVC, cada vez que se tire/borre el namespace se pierde.
 
-**Exportar (antes de tirar, si hiciste cambios en la UI):**
+**Exportar (antes de tirar, si se hicieron cambios en la UI):**
 1. `kubectl -n streaming port-forward svc/grafana 3000:3000` → http://localhost:3000
 2. Share → Export → "Export for sharing externally" (ON) → Save to file.
 3. Reemplazar el JSON del repo correspondiente y commitear:
