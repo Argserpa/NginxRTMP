@@ -296,7 +296,7 @@ kubectl exec -it deployment/nginx-stream -n streaming -- ls -R /recordings
 kubectl cp streaming/$(kubectl get pod -n streaming -l app=nginx-stream -o jsonpath='{.items[0].metadata.name}'):/recordings/<fecha>/<HH-MM-SS>.ts ./grabacion.ts
 ```
 
-> 💡 Para probar sin OBS, se puede emitir un patrón de test desde dentro del pod:
+> Para probar sin OBS, se puede emitir un patrón de test desde dentro del pod:
 > ```bash
 > POD=$(kubectl get pod -n streaming -l app=nginx-stream -o jsonpath='{.items[0].metadata.name}')
 > kubectl exec -n streaming "$POD" -- ffmpeg -re \
