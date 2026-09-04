@@ -1,8 +1,45 @@
+## Trabajo de Fin de Grado
+
+Este repositorio es uno de los dos entregables de código de un Trabajo de Fin de Grado:
+
+- **Título**: Virtualización ligera y cloud computing para el despliegue de servidores
+  streaming para la docencia online de ingeniería.
+- **Autor**: Ángel Roberto García Serpa
+- **Tutor**: Agustín Carlos Caminero Herráez
+- **Titulación**: Grado en Ingeniería Informática
+- **Universidad**: Universidad Nacional de Educación a Distancia (UNED),
+  Escuela Técnica Superior de Ingeniería Informática
+- **Curso académico**: 2025/2026
+
+El TFG compara dos paradigmas de *streaming* en igualdad de condiciones (mismas métricas,
+mismos escenarios de carga, mismo despliegue en Kubernetes): este repositorio implementa
+el **Proyecto 1** (HLS/MPEG-DASH sobre Nginx-RTMP); el **Proyecto 2** (WebRTC con `aiortc`); 
+vive en [github.com/Argserpa/WebRTC](https://github.com/Argserpa/WebRTC).
+
+
 # NginxRTMP — Proyecto 1 (RTMP/HLS)
 
 Servidor de streaming en vivo con Nginx + módulo RTMP, grabación continua a VOD y
 monitorización con Prometheus/Grafana. Es el Proyecto 1 (P1) del TFG, usado como
 comparativa frente al Proyecto 2 (WebRTC).
+
+## Trabajo de Fin de Grado
+
+Este repositorio es uno de los dos entregables de código de un Trabajo de Fin de Grado:
+
+- **Título**: Virtualización ligera y cloud computing para el despliegue de servidores
+  streaming para la docencia online de ingeniería.
+- **Autor**: Ángel Roberto García Serpa
+- **Tutor**: Agustín Carlos Caminero Herráez
+- **Titulación**: Grado en Ingeniería Informática
+- **Universidad**: Universidad Nacional de Educación a Distancia (UNED),
+  Escuela Técnica Superior de Ingeniería Informática
+- **Curso académico**: 2025/2026
+
+El TFG compara dos paradigmas de *streaming* en igualdad de condiciones (mismas métricas,
+mismos escenarios de carga, mismo despliegue en Kubernetes): este repositorio implementa
+el **Proyecto 1** (HLS/MPEG-DASH sobre Nginx-RTMP); el **Proyecto 2** (WebRTC con
+`aiortc`) vive en [github.com/Argserpa/WebRTC](https://github.com/Argserpa/WebRTC).
 
 ## Servicios del stack
 
